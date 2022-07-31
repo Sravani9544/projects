@@ -1,0 +1,1708 @@
+---
+title: "R Notebook"
+output:
+  word_document: default
+  html_notebook: default
+---
+---------------------------------Loading the packages-----------------------------
+                                 ____________________
+                                  
+```{r}
+packages <- c('tidyverse','odds.n.ends','lmtest','tableone','car',
+              'lsr','haven','gridExtra', 'forcats')
+```
+
+```{r}
+purrr::walk(packages,library,character.only=T)
+```
+
+----------------------------------------------------------------------------------
+
+                                 Importing the Data
+                                 __________________
+
+```{r}
+#Importing the data
+
+projectF <- read.csv(file = "DEMO_H.csv")
+```
+
+----------------------------------------------------------------------------------
+
+                           Renaming, Filtering, and Selecting
+                           __________________________________
+
+```{r}
+# filtering by age 
+
+data1 <- projectF %>%
+  rename(age=RIDAGEYR,
+       gender=RIAGENDR,
+       marital_status=DMDMARTL,
+       income=INDHHIN2,
+       depression=DPQ020)%>%
+  filter(age >= 20) %>%
+  select(age, gender, marital_status, income, depression)
+```
+
+----------------------------------------------------------------------------------
+                                   
+                                   Data Cleaning
+                                   _____________
+                                   
+```{r}
+## data cleaning
+
+## recoding marital status variable
+
+data1.cleaned <- data1 %>%
+  mutate(marital_status = recode_factor(.x = marital_status,
+                          `1` = 'Married',
+                          `2` = 'Widowed',
+                          `3` = 'Divorced',
+                          `4` = 'Separated',
+                          `5` = 'Never married',
+                          `6` = 'Living with partner',
+                          `77`= NA_character_,
+                          `99`= NA_character_))%>%
+  drop_na(marital_status)%>%
+  
+  ## recoding income variable
+  
+  mutate(income = recode_factor(.x = income,
+                                    `1` = '0 to 4,999',
+                                    `2` = '5,000 to 9,999',
+                                    `3` = '10,000 to 14,999',
+                                    `4` = '15,000 to 19,999',
+                                    `5` = '20,000 to 24,000',
+                                    `6` = '25,000 to 34,000',
+                                    `7` = '35,000 to 44,999',
+                                    `8` = '45,000 to 54,999',
+                                    `9` = '55,000 to 64,999',
+                                    `10`= '65,000 to 74,999',
+                                    `12`= '20,000 and over',
+                                `13`= 'Under 20,000',
+                                `14`= '75,000 to 99,999',
+                                `15`= '100,000 and Over',
+                                `77` = NA_character_,
+                                `99` = NA_character_))%>%
+  drop_na(income)%>%
+  
+  ## recoding gender 
+  
+  mutate(gender = recode_factor(.x = gender,
+                                `1` = 'male',
+                                `2` = 'female'))%>%
+  
+  ## recoding outcome variable depression
+  
+  mutate(depression = recode_factor(.x = depression,
+                                    `0`= "Not at all",
+                                    `1`= "several days",
+                                    `2` = "> half days",
+                                    `3` = "Nearly every day",
+                                    `7` = NA_character_,
+                                    `9` = NA_character_))%>%
+  drop_na(depression)
+```
+
+----------------------------------------------------------------------------------
+
+      Merging the groups of depression and recoding them into binary variable
+      _______________________________________________________________________
+
+```{r}
+data1.cleaned.final <- data1.cleaned%>%
+  mutate(depression = fct_recode(data1.cleaned$depression, '0'                               = "Not at all", '1'  = "several days",'1' = "> half days", '1' ="Nearly every day"))%>%
+  mutate(depression = recode_factor(.x = depression,
+                                    `0`= "No",
+                                    `1`= "Yes"))
+```
+
+----------------------------------------------------------------------------------
+
+                                 Checking the summary
+                                 ____________________
+
+```{r}
+summary(data1.cleaned.final)
+```
+
+INTERPRETATION: there were more observations of people without depression than all responses in the other categories combined(yes). 
+----------------------------------------------------------------------------------
+                                
+                                Descriptive Statistics
+                                ______________________
+                                
+                                A) Plotting Histograms
+                                
+```{r}
+#GRAPH FOR INCOME VARIABLE
+
+income_graph <- data1.cleaned.final %>% 
+                drop_na(income) %>%
+                ggplot(aes(x = income)) +
+                geom_bar(fill="purple")+
+                coord_flip()+
+                labs(x = "Income Category", y = "count") +
+                theme_minimal()
+income_graph
+```
+INTERPRETATION: In the data that we have taken, people with more than 100,000 salary are higher in proportion overall. People with 75,000 to 99,000 and 25,000 to 34,000 salaries are closely same in proportions i.e, 400 to 550 approximately.
+
+```{r}
+#GRAPH FOR MARITAL STATUS VARIABLE
+
+marital_status_graph <- data1.cleaned.final %>% 
+                drop_na(marital_status) %>%
+                ggplot(aes(x = marital_status)) +
+                geom_bar(fill="orange")+
+  coord_flip()+
+                labs(x = "marital_status_cat", y = "count") +
+                theme_minimal()
+marital_status_graph
+
+```
+INTERPRETATION: In the data provided, married people are in leading position in terms of the sample population count. whereas, there are very less people who got separated with their partners in the population. Moreover, people who never got married takes the second place in the population count.
+
+```{r}
+#GRAPH FOR GENDER VARIABLE
+
+gender_graph <- data1.cleaned.final %>% 
+                drop_na(gender) %>%
+                ggplot(aes(x = gender)) +
+                geom_bar(fill="pink")+
+                labs(x = "gender", y = "count") +
+                theme_minimal()
+gender_graph
+```
+INTERPRETATION: In the data that we have considered for our project, female population is slightly more than male population with the difference of 100 approximately.
+
+```{r}
+#GRAPH FOR OUTCOME VARIABLE DEPRESSION
+
+depression_graph <- data1.cleaned.final %>% 
+                drop_na(depression) %>%
+                ggplot(aes(x = depression)) +
+                geom_bar(fill="violet")+
+                labs(x = "depression", y = "count") +
+                theme_minimal()
+depression_graph
+```
+```{r}
+gridExtra::grid.arrange(gender_graph, depression_graph, marital_status_graph, income_graph)
+```
+INTERPRETAION: The graph depicts that nearly 1200 people responded with yes to the question that if they are suffering from the symptoms of depression or not.
+
+```{r}
+#HISTOGRAM FOR AGE VARIABLE
+
+age_graph <- data1.cleaned.final %>% 
+                drop_na(age) %>%
+                ggplot(aes(x = age)) +
+                geom_histogram(fill = 'grey',col ="black", bins = 30)+
+                labs(x = "age", y = "count") +
+                theme_minimal()
+age_graph
+```
+INTERPRETATION: From the above graph, We can observe that people in their 30's, 60's and 80's are higher in proportions in terms of population count in the data.And the data in age variable is not normal. So, we transform the variable so check if we can find the normal distribution.
+
+```{r}
+# transforming the variable
+data.transformed <- data1.cleaned.final %>%
+mutate(age.cube.root = age^(1/3)) %>%
+mutate(age.log = log(x = age)) %>%
+mutate(age.inverse = 1/age) %>%
+mutate(age.sqrt = sqrt(x = age))
+```
+
+```{r}
+# graph the transformations
+cuberoot <- data.transformed %>%
+ggplot(aes(x = age.cube.root)) +
+geom_histogram(fill = "#7463AC", color = "white") +
+theme_minimal() +
+labs(x = "Cube root of age", y = "Number of participants")
+
+cuberoot
+```
+
+```{r}
+logged <- data.transformed %>%
+ggplot(aes(x = age.log)) +
+geom_histogram(fill = "#7463AC", color = "white") +
+theme_minimal() +
+labs(x = "Log of age", y = "Number of Participants")
+
+logged
+```
+                                   
+```{r}                                  
+inversed <- data.transformed %>%
+ggplot(aes(x = age.inverse)) +
+geom_histogram(fill = "#7463AC", color = "white") +
+theme_minimal() + xlim(0, 1) +
+labs(x = "Inverse of age", y = "Number of Participants")
+
+inversed
+```
+```{r}
+# graph the transformations
+squareroot <- data.transformed %>%
+ggplot(aes(x = age.sqrt)) +
+geom_histogram(fill = "#7463AC", color = "white") +
+theme_minimal() +
+labs(x = "Square root of age", y = "")
+
+squareroot
+```
+```{r}
+gridExtra::grid.arrange(cuberoot, logged, inversed, squareroot)
+```
+INTERPRETATION: No normal distribution found in the transformed variables too. Hence we go with the original variable without any transformation.
+
+                                   B)Box Plots
+                                   ____________
+                                   
+```{r}
+## box plot between income and depression
+
+income_and_depression <- data1.cleaned.final %>%
+ggplot(aes(x = income, y = depression)) +
+geom_jitter(aes(color = income), alpha = .6) +
+geom_boxplot(aes(fill = income), alpha = .4) +
+labs(x = "Income",
+     y = "values") +
+  coord_flip()+
+theme_minimal()
+
+income_and_depression
+```
+INTERPRETATION: There were more depressed people in the range of 10,000 - 60,000 income range than other ranges. And people with more than 100,000 income were not facing any depression. 
+
+```{r}
+## box plot between marital status and depression
+
+mstatus_and_depression <- data1.cleaned.final %>%
+ggplot(aes(x = marital_status, y = depression)) +
+geom_jitter(aes(color = marital_status), alpha = .6) +
+geom_boxplot(aes(fill = marital_status), alpha = .4) +
+labs(x = "Marital status",
+     y = "values") +
+  coord_flip()+
+theme_minimal()
+
+mstatus_and_depression
+```
+INTERPRETATION: There were more depressed people in ones who were married. And there was significant people with depression in the categories never married, and Divorced.
+
+```{r}
+## box plot between gender and depression
+
+gender_and_depression <- data1.cleaned.final %>%
+ggplot(aes(x = gender, y = depression)) +
+geom_jitter(aes(color = gender), alpha = .6) +
+geom_boxplot(aes(fill = gender), alpha = .4) +
+labs(x = "Gender",
+     y = "values") +
+  coord_flip()+
+theme_minimal()
+
+gender_and_depression
+```
+INTERPRETATION: There were more depressed females than males. But the people without depression were equal.
+
+
+----------------------------------------------------------------------------------
+
+                                
+                                Descriptive Statistics
+                                ______________________
+                                
+```{r}
+## Descriptive statistics showing all the results
+
+data1.table <- CreateTableOne(data = data1.cleaned.final)
+```
+
+```{r}
+print(x = data1.table, varLabels = TRUE, nonnormal = 'age')
+
+```
+
+
+```{r}
+## Descriptive Statistics with Bivariate Test
+
+table.desc <- CreateTableOne(data = data1.cleaned.final,
+                            strata = "depression",
+                            vars = c("age", "gender", "income", "marital_status"))
+```
+
+```{r}
+print(table.desc,nonnormal = "age", showAllLevels = TRUE)
+```
+
+INTERPRETATION: The variables that were selected were statistically significantly associated with depression with p <0.05.
+* Among people, Those who have depression 63.1% are female, while of those who do   not have depression, 48.9% are female. 
+* Married people are suffering from depression more than any other group with       42.5% people.
+* The depression people were younger, with a lower median age (med = 36 years) and   higher median age (med = 63 years).
+* there are more depressed people who earn between 25,000 to 34,000 with 11.5%.     But there are depressed people in other range of income too.
+
+----------------------------------------------------------------------------------
+    
+       CHI SQUARE TEST FOR INCOME VARIABLE AND OUTCOME VARIABLE DEPRESSION
+       ___________________________________________________________________
+
+The chi-squared test is useful for testing to see if there may be a    statistical relationship between two categorical variables i.e, income  and depression.
+The chi-squared test is based on the observed values, and the values expected to occur if there were no relationship between the variables.
+If there were no relationship between income and depression, the observed and expected values would be the same.  
+Differences between observed values and expected indicates that there    may be a relationship between the income and depression variables . 
+
+
+1) ASSUMPTIONS OF CHI-SQUARED TEST OF INDEPENDENCE
+
+###Assumption 1:
+
+The variables must be nominal or ordinal.
+('INCOME VARIABLE' has categories that are in particular order, so it is ORDINAL. The outcome variable - DEPRESSION has categories that are in no particular order, so it is nominal. This assumption is met.)
+
+##Assumption 2:
+
+The expected values should be 5 or higher in at least 80% of groups.
+In this INCOME, there are 14 groups, so 80% of this would be 11.2 groups. Since there is no way to have .4 of a group. Therefore,assumption is met.
+
+##Assumption 3:   
+
+The observations must be independent. Income is an indepedent variable, hence the assumption is met.
+
+
+##Using Null Hypothesis Significance Testing (NHST) to organize statistical testing
+
+
+NHST Step 1: Writing the null and alternate hypotheses
+
+The null hypothesis is usually a statement that claims there is no       difference or no relationship between things, whereas the alternate      hypothesis is the claim that there is a difference or a relationship     between things. 
+The null (H0) and alternate (HA or H1) hypotheses are written about the income variable and depression variable.
+
+H0: There is a statistical relationship between income and depression variables 
+HA: There is no such statistical variable between income and depression variables.
+
+
+NHST Step 2: Computing the test statistic
+
+The test statistic to use when examining a relationship between two categorical variables is the chi-squared statistic, χ2.
+
+```{r}
+# chi-squared statistic for income and depression
+
+chisq.test(x = data1.cleaned.final$income, y = data1.cleaned.final$depression)
+```
+
+* The test statistic is χ2 : 145.59.
+* Degree of freedom : 13.
+* p < 2.2e-16 or p < .05.
+
+NHST Step 4: the probability that the null is true is very small, i.e, less than 5%, rejecting the null hypothesis.
+
+NHST Step 5: If the probability that the null is true is not small, usually 5% or greater, retain the null hypothesis
+Not applicable here as p < 0.05 
+
+INTERPRETATION: In most of the fields, a p-value less than .05 is considered statistically significant.So, we are Rejecting null hypotheses.A chi-squared this big, and the corresponding p-value this small, means the observed values were much different from what we would have expected to see if there were no relationship between INCOME and DEPRESSION in the population sampled.There was a statistically significant association between income and depression [χ2(3) = 145.59 ; p < .05].
+
+
+REPORTING THE TEST : 
+We used the chi-squared test to test the null hypothesis that there was no relationship between INCOME and DEPRESSION. We rejected the null hypothesis and concluded that there was a statistically significant association between people's income and depression. [χ2(3) = 145.59; p < .05].
+
+----------------------------------------------------------------------------------
+
+                      Two Sample t-Test/ Independent Sample t-Test
+                                _________________
+Instead of comparing one mean to a hypothesized or population mean, the independent-samples t-test compares the means of two   groups to each other.
+
+#Checking the Assumptions.
+Assumption 1: Normal distribution.
+*Data is not normally distributed and their transformed variables also do not show any normal distribution.
+
+Assumption 2: Equal variance in each group.
+* Levene’s test is widely used to test the assumption of equal variances. 
+* The null hypothesis for Levene’s test is that the variances are equal,   while the alternate hypothesis is that the variances are not equal. 
+* A statistically significant Levene’s test would mean rejecting the null   hypothesis of equal variances and failing the assumption.
+
+```{r}
+# equal variances for depression by age
+car::leveneTest(y = age ~ depression, data = data1.cleaned.final)
+```
+Assumption not met as the p-value is less than .06 and we reject the Null Hypothesis.
+
+##Using Null Hypothesis Significance Testing (NHST) to organize statistical testing
+
+NHST STEP 1: 
+
+  H0:There is no difference in mean age of people with and people depression.
+  HA:There is a difference in mean age of people with and without depression.
+  
+NHST STEP 2: 
+```{r}
+#Comparing means across depression variable
+twosampt <- t.test(formula = data1.cleaned.final$age ~
+               data1.cleaned.final$depression)
+
+twosampt
+```
+NHST STEP 3: 
+
+The p-value = 0.05643
+
+NHST STEPS 4 and 5: 
+
+INTERPRETATION:
+
+*In this case, the t-statistic was definitely in the acceptance region, so there was no sufficient evidence to reject the null hypothesis in favor of the alternate hypothesis.
+
+* Even though there is difference between the mean age of people with depression and people without depression is found it is not statistically significant.
+
+#With the assumptions not met the t-test fails and we continue with Alternate tests.
+------------------------------------------------------------------------------
+
+Alternative when the independent-samples t-test normality assumption fails:                 The Mann-Whitney U test/ Wilcoxon rank sum test
+
+* The Mann-Whitney U test is an alternative to the independent-samples     t-test when the continuous variable is not normally distributed.
+
+NHST STEP 1: 
+  H0: There is no difference in ranked age values for people with and without depression.
+  HA: There is a difference in ranked age values for people with and without depression.
+
+NHST STEP 2:    
+
+```{r}
+# test the distribution of systolic by sex
+diff.by.age <- wilcox.test(formula =
+                  data1.cleaned.final$age ~
+                  data1.cleaned.final$depression,
+                paired = FALSE)
+
+diff.by.age
+```
+NHST STEP 3: 
+  The p-value is shown in scientific notation in the output as 0.0482, which is below .05.
+  
+NHST STEPS 4 and 5:
+
+INTERPRETATION: A Mann-Whitney U test comparing the mean age of people with and without depression doesn't show much statistically significant difference as the p-value is close to .05.
+
+----------------------------------------------------------------------------------
+                                     
+                               Binary Logistic Regression
+                               __________________________
+                                
+                        A) Checking the levels of Outcome variable
+
+
+```{r}
+levels(as.factor(x = data1.cleaned.final$depression))
+```
+Interpretation:
+* The first category is “no” and the second is “yes.” 
+* This means the model will be predicting the “yes” category of depression.
+
+```{r}
+# make no the reference group
+data1.cleaned.final <- data1.cleaned.final %>%
+mutate(depression = relevel(x = as.factor(depression), ref = "No"))
+```
+
+```{r}
+# check the re-ordering
+levels(x = data1.cleaned.final$depression)
+```
+
+```{r}
+data1.cleaned.final$depression <- as.factor(data1.cleaned.final$depression)
+```
+
+```{r}
+# check the re-ordering
+levels(x = data1.cleaned.final$depression)
+```
+
+----------------------------------------------------------------------------------
+
+    B) Binary Logistic Regression, checking assumptions, and model diagnostics 
+                     for the independent variables seperately
+
+## first model
+
+1) model 
+
+* The statistical model for the logistic model in Equation
+                  p(y)=1/1+e−(b0+b1x1+b2x2)
+  where
+      y : the binary outcome variable (e.g., depression)
+      p(y) : the probability of the outcome (e.g., probability of depression)
+      b0 : the y-intercept
+      x1 and x2 : predictors of the outcome (e.g., age)
+      b1 and b2 : coefficients for x1 and x2
+
+* The overall final equation looks like
+          p(depression)=1/1+e^(−(b0+b1age))
+    where 
+      y : the name of the outcome variable, depression
+      x : the name of the predictor variable, age 
+
+```{r}
+## model for depression and age
+
+data1.age.model <- glm(formula = depression ~ age,
+                  data = data1.cleaned.final,
+                  na.action = na.exclude,
+                  family = binomial("logit"))
+```
+
+```{r}
+## checking summary
+
+summary(object = data1.age.model)
+```
+
+INTERPRETATION: 
+* The output from glm() contains information about the significance of the predictors, but is missing several pieces of information for reporting results, such as the odds ratios, model significance, and model fit.
+* We use the odds.n.ends() function from the odds.n.ends package to get this information.
+
+```{r}
+## computing the odds ratio
+
+odds.n.ends(mod = data1.age.model)
+```
+
+INTERPRETATION: 
+* The chi-squared test statistic for a logistic regression model with age predicting depression had a p-value of more than 0.001. The null hypothesis is therefore accepted i.e., the model is not  better than the baseline at predicting depression. A logistic regression model including age was not statistically significantly better than a null model at predicting depression [χ2(1) = 3.506; p = >.001].
+* The odds ratio for age is 1.00 with a 95% CI of .99–1.00. The confidence interval shows the range where the odds ratio likely is in the population. Because the confidence interval include 1, this indicates that the odds ratio is statistically not significantly different from 1. 
+
+```{r}
+## function to count R-Squared
+
+countR2<-function(m) mean(m$y==round(m$fitted.values))
+```
+
+```{r}
+## R-Squared for the model
+
+countR2(data1.age.model)
+```
+
+Interpretation:
+* There were 75.2% correct predictions by the model than by the baseline observing   the value in the summary of the model.
+* There were 75.2% correct predictions by the model than by the baseline            (Adjusted Count R2 = .533).
+
+
+2) checking assumptions
+
+There are three assumptions for logistic regression: 
+* independence of observations, 
+* linearity, 
+* no perfect multi-collinearity. 
+
+## Assumption1: independence of observations
+
+```{r}
+durbinWatsonTest(data1.age.model)
+```
+
+INTERPRETATION: Since, the p-value is greater than 0.05, we assume that the observations are independent [p-value = 0.252]. Hence, the assumption is met.
+
+## Assumption2: linearity
+
+```{r}
+# making a variable of the log-odds of the predicted values
+
+logit.dep <- log(x = data1.age.model$fitted.values/(1-data1.age.model$fitted.values))
+```
+
+```{r}
+# making a small data frame with the log-odds variable and the age predictor
+
+linearity.age.data <- data.frame(logit.dep, age = data1.age.model$model$age)
+```
+
+```{r}
+# creating a plot 
+
+linearity.age.data %>%
+ggplot(aes(x = age, y = logit.dep))+
+geom_point(aes(size = "Observation"), color = "gray60", alpha = .6) +
+geom_smooth(se = FALSE, aes(color = "Loess curve")) +
+geom_smooth(method = lm, se = FALSE, aes(color = "linear")) +
+theme_minimal() +
+labs(x = "Age in years",
+     y = "Log-odds of depression predicted probability") +
+scale_color_manual(name = "Type of fit line",
+                   values = c("dodgerblue2", "deeppink")) +
+scale_size_manual(values = 1.5, name = "")
+```
+
+```{r}
+plot(data1.age.model, 1)
+```
+
+INTERPRETATION: The linearity assumption is met, as the graph is linear.
+
+## Assumption 3: No perfect multicollinearity
+
+```{r}
+# compute GVIF
+car::vif(mod = data1.age.model)
+```
+
+
+3) Model diagnostics 
+
+## Using standardized residuals to find outliers
+
+```{r}
+## getting standardized residuals and adding to data frame
+
+data1.cleaned.final.age <- data1.cleaned.final %>%
+mutate(standardized = rstandard(model = data1.age.model))
+```
+
+```{r}
+## checking the residuals for large values > 2
+
+data1.cleaned.final.age %>%
+drop_na(standardized) %>%
+summarize(max.resid = max(abs(x = standardized)))
+```
+
+INTERPRETATION:The maximum absolute value of any standardized residual was less than 1.96, so the standardized residuals did not reveal any outliers.
+
+## Using df-betas to find influential values
+
+```{r}
+## getting influence statistics
+
+influence.data1.age <- influence.measures(model = data1.age.model)
+```
+
+```{r}
+## summarizing data frame with dfbetas, cooks, leverage
+
+summary(object = influence.data1.age$infmat)
+```
+
+Interpretation: None of the variables had df-betas larger than 2, so, by the df-beta measure, there were no influential observations.
+
+## Using Cook’s Distance to find influential values
+
+```{r}
+## saving the data frame
+
+influence.age <- data.frame(influence.data1.age$infmat)
+```
+
+```{r}
+## observations with high Cook’s D
+
+influence.age %>%
+    filter(cook.d > 4/1427)
+```
+
+INTERPRETATION: Counting the rows in the output, it looked like there were no variables indicating any influence.
+
+## Using leverage to find influential values
+
+```{r}
+## observations with high Leverage
+
+influence.age %>%
+  filter(hat > 2*13/1427)
+```
+ 
+ INTERPRETATION: No observation had high leverage.
+
+```{r}
+## observations with high leverage and Cook’s D
+
+influence.age %>%
+filter(hat > 2*13/1427 & cook.d > 4/1427)
+```
+
+INTERPRETATION: No observation was problematic.
+
+```{r}
+## making row names as a variable
+
+influence.age <- influence.age %>%
+                  rownames_to_column()
+```
+
+```{r}
+## merging data frame with diagnostic stats
+
+data1.diag <- data1.cleaned.final %>%
+rownames_to_column() %>%
+merge(x = influence.age, by = 'rowname') %>%
+mutate(pred.prob = predict(object = data1.age.model, type = "response"))
+```
+
+```{r}
+## finding mean predicted probability
+
+data1.diag %>%
+summarize(mean.predicted = mean(x = pred.prob, na.rm = TRUE))
+```
+
+INTERPRETATION: The mean predicted probability was .24
+
+```{r}
+## reviewing influential observations
+
+data1.diag %>%
+filter(hat > 2*13/1427 & cook.d > 4/1427) %>%
+select(rowname, age,depression,hat, cook.d, pred.prob)
+```
+
+INTERPRETATION:The observations did not seem unusual or like data entry errors. Because there do not appear to be any data entry errors or strange values, the observations should stay in the data frame.
+
+REPORT: The chi-squared test statistic for a logistic regression model with age predicting depression had a p-value of more than 0.001. The null hypothesis is therefore accepted i.e., the model is not  better than the baseline at predicting depression. A logistic regression model including age was not statistically significantly better than a null model at predicting depression [χ2(1) = 3.506; p = >.001].The odds ratio for age is 1.00 with a 95% CI of .99–1.00. The confidence interval shows the range where the odds ratio likely is in the population. Because the confidence interval include 1, this indicates that the odds ratio is statistically not significantly different from 1. 
+so, age is not statistically significant. Assumption checking revealed linearity of the age predictor. The other assumptions were met. Diagnostics found no problematic outlying or influential observations.We couldn't find any mulcollinaerity for the variable as model contains fewer than 2 terms
+
+
+##################################################################################
+
+### second model
+
+1) Model
+
+* The statistical model for the logistic model in Equation
+                  p(y)=1/1+e−(b0+b1x1+b2x2)
+  where
+      y : the binary outcome variable (e.g., depression)
+      p(y) : the probability of the outcome (e.g., probability of depression)
+      b0 : the y-intercept
+      x1 and x2 : predictors of the outcome (e.g., marital status)
+      b1 and b2 : coefficients for x1 and x2
+
+* The overall final equation looks like
+          p(depression)=1/1+e^(−(b0+b1marital_status))
+    where 
+      y : the name of the outcome variable, depression
+      x : the name of the predictor variable, marital_status 
+
+```{r}
+## model for depression and marital status
+
+data1.marital.model <- glm(formula = depression ~ marital_status,
+                  data = data1.cleaned.final,
+                  na.action = na.exclude,
+                  family = binomial("logit"))
+```
+
+```{r}
+summary(object = data1.marital.model)
+```
+
+INTERPRETATION: 
+* The output from glm() contains information about the significance of the predictors, but is missing several pieces of information for reporting results, such as the odds ratios, model significance, and model fit.
+* We use the odds.n.ends() function from the odds.n.ends package to get this information.
+
+```{r}
+## computing the odds ratio
+
+odds.n.ends(mod = data1.marital.model)
+```
+
+INTERPRETATION: 
+* The chi-squared test statistic for a logistic regression model with marital status predicting depression had a p-value of less than 0.001. The null hypothesis is therefore rejected i.e., the model is better than the baseline at predicting depression. A logistic regression model including marital status was statistically significantly better than a null model at predicting depression [χ2(1) = 72.791; p = <.001]. All the groups in the variabble are statistically significant
+* The odds ratio for all the groups in the variable is between 1.00 and 2.06 with a 95% CI of all groups are between either 1 and 2, or 1 and 1.9. The confidence interval shows the range where the odds ratio likely is in the population. Because the confidence interval include 1, this indicates that the odds ratio is statistically not significantly different from 1. 
+
+```{r}
+## computing R-Squared
+
+countR2(data1.marital.model)
+```
+
+Interpretation:
+* There were 75.2% correct predictions by the model than by the baseline observing   the value in the summary of the model.
+* There were 75.2% correct predictions by the model than by the baseline.
+
+2) checking assumptions
+
+There are three assumptions for logistic regression: 
+* independence of observations, 
+* linearity, 
+* no perfect multi-collinearity. 
+
+## Assumption1: independence of observations
+
+```{r}
+durbinWatsonTest(data1.marital.model)
+```
+
+INTERPRETATION: Since, the p-value is greater than 0.05, we assume that the observations are independent [p-value = 0.382]. Hence, the assumption is met.
+
+## Assumption2: linearity
+
+```{r}
+# making a variable of the log-odds of the predicted values
+
+logit.dep.marital <- log(x = data1.marital.model$fitted.values/(1-data1.marital.model$fitted.values))
+```
+
+```{r}
+# making a small data frame with the log-odds variable and the age predictor
+
+linearity.marital.data <- data.frame(logit.dep.marital, marital_status = data1.marital.model$model$marital_status)
+```
+
+```{r}
+# creating  a plot 
+
+linearity.marital.data %>%
+ggplot(aes(x = marital_status, y = logit.dep.marital))+
+geom_point(aes(size = "Observation"), color = "gray60", alpha = .6) +
+geom_smooth(se = FALSE, aes(color = "Loess curve")) +
+geom_smooth(method = lm, se = FALSE, aes(color = "linear")) +
+theme_minimal() +
+labs(x = "Marital Status",
+     y = "Log-odds of depression predicted probability") +
+scale_color_manual(name = "Type of fit line",
+                   values = c("dodgerblue2", "deeppink")) +
+scale_size_manual(values = 1.5, name = "")
+```
+
+```{r}
+plot(data1.marital.model, 1)
+```
+
+INTERPRETATION: The linearity assumption is met, as the graph is linear.
+
+## Assumption 3: No perfect multicollinearity
+
+```{r}
+# computing GVIF
+car::vif(mod = data1.marital.model)
+```
+
+
+3) Model diagnostics 
+
+## Using standardized residuals to find outliers
+
+```{r}
+## getting standardized residuals and adding to data frame
+
+data1.cleaned.final.marital <- data1.cleaned.final %>%
+mutate(standardized = rstandard(model = data1.marital.model))
+```
+
+```{r}
+## checking the residuals for large values > 2
+
+data1.cleaned.final.marital %>%
+drop_na(standardized) %>%
+summarize(max.resid = max(abs(x = standardized)))
+```
+
+INTERPRETATION:The maximum absolute value of any standardized residual was less than 1.96, so the standardized residuals did not reveal any outliers.
+
+## Using df-betas to find influential values
+
+```{r}
+## getting influence statistics
+
+influence.data1.marital <- influence.measures(model = data1.marital.model)
+```
+
+```{r}
+## summarizing data frame with dfbetas, cooks, leverage
+
+summary(object = influence.data1.marital$infmat)
+```
+
+Interpretation: None of the variables had df-betas larger than 2, so, by the df-beta measure, there were no influential observations.
+
+## Using Cook’s Distance to find influential values
+
+```{r}
+## saving the data frame
+
+influence.marital <- data.frame(influence.data1.marital$infmat)
+```
+
+```{r}
+## observations with high Cook’s D
+
+influence.marital %>%
+    filter(cook.d > 4/1427)
+```
+
+INTERPRETATION: Counting the rows in the output, it looked like there were no variables indicating any influence.
+
+## Using leverage to find influential values
+
+```{r}
+## observations with high Leverage
+
+influence.marital %>%
+  filter(hat > 2*13/1427)
+```
+ 
+ INTERPRETATION: No observation had high leverage.
+
+```{r}
+## observations with high leverage and Cook’s D
+
+influence.marital %>%
+filter(hat > 2*13/1427 & cook.d > 4/1427)
+```
+
+INTERPRETATION: No observation had high leverage and Cook’s D
+
+```{r}
+## making row names as a variable
+
+influence.marital <- influence.marital %>%
+                  rownames_to_column()
+```
+
+```{r}
+## merging data frame with diagnostic stats
+
+data1.diag.marital <- data1.cleaned.final %>%
+rownames_to_column() %>%
+merge(x = influence.marital, by = 'rowname') %>%
+mutate(pred.prob = predict(object = data1.marital.model, type = "response"))
+```
+
+```{r}
+## finding mean predicted probability
+
+data1.diag.marital %>%
+summarize(mean.predicted = mean(x = pred.prob, na.rm = TRUE))
+```
+
+INTERPRETATIONS: mean predicted probability is 0.24
+
+```{r}
+## reviewing influential observations
+
+data1.diag.marital %>%
+filter(hat > 2*13/1427 & cook.d > 4/1427) %>%
+select(rowname, marital_status,depression,hat, cook.d, pred.prob)
+```
+
+INTERPRETATION: there were no influential observations
+
+REPORT: The chi-squared test statistic for a logistic regression model with, marital status predicting depression had a p-value of less than 0.001. The null hypothesis is therefore rejected i.e., the model is better than the baseline at predicting depression. A logistic regression model including marital status was statistically significantly better than a null model at predicting depression [χ2(1) = 72.791; p = <.001]. The odds ratio for all the groups in the variable is between 1.00 and 2.06 with a 95% CI of all groups are between either 1 and 2, or 1 and 1.9. The confidence interval shows the range where the odds ratio likely is in the population. Because the confidence interval include 1, this indicates that the odds ratio is statistically not significantly different from 1. 
+so, marital status is not statistically significant. Assumption checking revealed linearity of the marital status predictor. The other assumptions were met. Diagnostics found no problematic outlying or influential observations. We couldn't find any mulcollinaerity for the variable as model contains fewer than 2 terms
+
+##################################################################################
+
+### third model
+
+1) model
+
+* The statistical model for the logistic model in Equation
+                  p(y)=1/1+e−(b0+b1x1+b2x2)
+  where
+      y : the binary outcome variable (e.g., depression)
+      p(y) : the probability of the outcome (e.g., probability of depression)
+      b0 : the y-intercept
+      x1 and x2 : predictors of the outcome (e.g., income)
+      b1 and b2 : coefficients for x1 and x2
+
+* The overall final equation looks like
+          p(depression)=1/1+e^(−(b0+b1income))
+    where 
+      y : the name of the outcome variable, depression
+      x : the name of the predictor variable, income
+
+```{r}
+## model for depression and income
+
+data1.income.model <- glm(formula = depression ~ income,
+                  data = data1.cleaned.final,
+                  na.action = na.exclude,
+                  family = binomial("logit"))
+```
+
+```{r}
+summary(object = data1.income.model)
+```
+
+```{r}
+## computing the odds ratio
+
+odds.n.ends(mod = data1.income.model)
+```
+
+INTERPRETATION: 
+* The chi-squared test statistic for a logistic regression model with, income       predicting depression had a p-value of less than 0.001. The null hypothesis is    therefore rejected i.e., the model is better than the baseline at predicting      depression. 
+* A logistic regression model including marital status was statistically            significantly better than a null model at predicting depression [χ2(1) =          151.759; p = <.001].
+* The groups income25,000 to 34,000, income35,000 to 44,999, income45,000 to        54,999, income55,000 to 64,999, income65,000 to 74,999, income75,000 to 99,999,   and income100,000 and Over are significant.The confidence interval of 
+* The groups income25,000 to 34,000, income35,000 to 44,999, income45,000 to        54,999, income55,000 to 64,999, income65,000 to 74,999, income75,000 to 99,999,   and income100,000 and Over the confidence interval does not include 1, this       indicates that the odds ratio is statistically significantly different from 1.
+
+```{r}
+## computing the R-Squared
+
+countR2(data1.income.model)
+```
+
+Interpretation:
+* There were 75.2% correct predictions by the model than by the baseline observing   the value in the summary of the model.
+* There were 75.2% correct predictions by the model than by the baseline.
+
+2) checking the assumptions
+
+There are three assumptions for logistic regression: 
+* independence of observations, 
+* linearity, 
+* no perfect multi-collinearity. 
+
+## Assumption1: independence of observations
+
+```{r}
+durbinWatsonTest(data1.income.model)
+```
+
+INTERPRETATION: Since, the p-value is greater than 0.05, we assume that the observations are independent [p-value = 0.306]. Hence, the assumption is met.
+
+## Assumption2: linearity
+
+```{r}
+# making a variable of the log-odds of the predicted values
+
+logit.dep.income <- log(x = data1.income.model$fitted.values/(1-data1.income.model$fitted.values))
+```
+
+```{r}
+# making a small data frame with the log-odds variable and the age predictor
+
+linearity.income.data <- data.frame(logit.dep.income, income = data1.income.model$model$income)
+```
+
+```{r}
+# creating a plot
+
+linearity.income.data %>%
+ggplot(aes(x = income, y = logit.dep.income))+
+geom_point(aes(size = "Observation"), color = "gray60", alpha = .6) +
+geom_smooth(se = FALSE, aes(color = "Loess curve")) +
+geom_smooth(method = lm, se = FALSE, aes(color = "linear")) +
+theme_minimal() +
+  coord_flip()+
+labs(x = "income",
+     y = "Log-odds of depression predicted probability") +
+scale_color_manual(name = "Type of fit line",
+                   values = c("dodgerblue2", "deeppink")) +
+scale_size_manual(values = 1.5, name = "")
+```
+
+```{r}
+plot(data1.income.model, 1)
+```
+
+INTERPRETATION: The linearity assumption is met, as the graph is linear.
+
+
+## Assumption 3: No perfect multicollinearity
+
+```{r}
+# computing GVIF
+car::vif(mod = data1.income.model)
+```
+
+
+3) Model diagnostics 
+
+## Using standardized residuals to find outliers
+
+```{r}
+## getting standardized residuals and adding to data frame
+
+data1.cleaned.final.income <- data1.cleaned.final %>%
+mutate(standardized = rstandard(model = data1.income.model))
+```
+
+```{r}
+## checking the residuals for large values > 2
+
+data1.cleaned.final.income %>%
+drop_na(standardized) %>%
+summarize(max.resid = max(abs(x = standardized)))
+```
+
+INTERPRETATION:The maximum absolute value of any standardized residual was more than than 1.96, so the standardized residuals did reveal outliers.
+
+## Using df-betas to find influential values
+
+```{r}
+## getting influence statistics
+
+influence.data1.income <- influence.measures(model = data1.income.model)
+```
+
+```{r}
+## summarizing data frame with dfbetas, cooks, leverage
+
+summary(object = influence.data1.income$infmat)
+```
+
+Interpretation: None of the variables had df-betas larger than 2, so, by the df-beta measure, there were no influential observations.
+
+## Using Cook’s Distance to find influential values
+
+```{r}
+## saving the data frame
+
+influence.income <- data.frame(influence.data1.income$infmat)
+```
+
+```{r}
+## observations with high Cook’s D
+
+influence.income %>%
+    filter(cook.d > 4/1427)
+```
+
+INTERPRETATION: None of the observations had high cook's D values
+
+## Using leverage to find influential values
+
+```{r}
+## observations with high Leverage
+
+influence.income %>%
+  filter(hat > 2*13/1427)
+```
+ 
+ INTERPRETATION: There were many observations which had high leverage
+
+```{r}
+## observations with high leverage and Cook’s D
+
+influence.income %>%
+filter(hat > 2*13/1427 & cook.d > 4/1427)
+```
+
+INTERPRETATION: There were no observations with high leverage and cook's D values
+
+```{r}
+## making row names as a variable
+
+influence.income <- influence.income %>%
+                  rownames_to_column()
+```
+
+```{r}
+## merging data frame with diagnostic stats
+
+data1.diag.income <- data1.cleaned.final %>%
+rownames_to_column() %>%
+merge(x = influence.income, by = 'rowname') %>%
+mutate(pred.prob = predict(object = data1.income.model, type = "response"))
+```
+
+```{r}
+## finding mean predicted probability
+
+data1.diag.income %>%
+summarize(mean.predicted = mean(x = pred.prob, na.rm = TRUE))
+```
+
+INTERPRETATION: the mean predicted probability is 0.24
+
+```{r}
+## reviewing influential observations
+
+data1.diag.income %>%
+filter(hat > 2*13/1427 & cook.d > 4/1427) %>%
+select(rowname, income,depression,hat, cook.d, pred.prob)
+```
+
+INTERPRETATION: There were no influential observations
+
+REPORT: The chi-squared test statistic for a logistic regression model with, income predicting depression had a p-value of less than 0.001. The null hypothesis iS therefore rejected i.e., the model is better than the baseline at predicting depression. A logistic regression model including marital status was statistically significantly better than a null model at predicting depression [χ2(1) = 151.759; p = <.001].The groups, income25,000 to 34,000, income35,000 to 44,999, income45,000 to 54,999, income55,000 to 64,999, income65,000 to 74,999, income75,000 to 99,999,and income100,000 and Over are significant.The confidence interval of the groups income25,000 to 34,000, income35,000 to 44,999, income45,000 to 54,999, income55,000 to 64,999, income65,000 to 74,999, income75,000 to 99,999, and income100,000 and Over the confidence interval does not include 1, this indicates that the odds ratio is statistically significantly different from 1. so, income is not statistically significant. Assumption checking revealed linearity of the income predictor. The other assumptions were met. Diagnostics found no problematic outlying or influential observations. We couldn't find any multi-collinearity for the variable as model contains fewer than 2 terms.
+
+
+##################################################################################
+
+## fourth model
+
+1) model
+
+* The statistical model for the logistic model in Equation
+                  p(y)=1/1+e−(b0+b1x1+b2x2)
+  where
+      y : the binary outcome variable (e.g., depression)
+      p(y) : the probability of the outcome (e.g., probability of depression)
+      b0 : the y-intercept
+      x1 and x2 : predictors of the outcome (e.g., gender)
+      b1 and b2 : coefficients for x1 and x2
+
+* The overall final equation looks like
+          p(depression)=1/1+e^(−(b0+b1gender))
+    where 
+      y : the name of the outcome variable, depression
+      x : the name of the predictor variable, gender
+
+```{r}
+## model for depression and gender
+
+data1.gender.model <- glm(formula = depression ~ gender,
+                  data = data1.cleaned.final,
+                  na.action = na.exclude,
+                  family = binomial("logit"))
+```
+
+```{r}
+summary(object = data1.gender.model)
+```
+
+
+```{r}
+## computing the odds ratio
+
+odds.n.ends(mod = data1.gender.model)
+```
+
+INTERPRETATION: 
+* The chi-squared test statistic for a logistic regression model with, gender       predicting depression had a p-value of less than 0.001. The null hypothesis is    therefore rejected i.e., the model is better than the baseline at predicting      depression. 
+* A logistic regression model including gender was statistically                    significantly better than a null model at predicting depression [χ2(1) =          81.662; p = <.001].
+* female group is significant.The confidence interval of gender is 1.61- 2.10 and   the odds ratio is 1.84. The confidence interval  include 1, this indicates that   the odds ratio is not statistically significantly different from 1.
+
+```{r}
+## Computing the R-Squared
+
+countR2(data1.gender.model)
+```
+
+INTERPRETATION: The R-squared is 75.2 for the model
+
+2) checking assumptions
+
+There are three assumptions for logistic regression: 
+* independence of observations, 
+* linearity, 
+* no perfect multi-collinearity. 
+
+## Assumption1: independence of observations
+
+```{r}
+durbinWatsonTest(data1.gender.model)
+```
+
+INTERPRETATION: Since, the p-value is greater than 0.05, we assume that the observations are independent [p-value = 0.298]. Hence, the assumption is met.
+
+
+## Assumption2: linearity
+
+```{r}
+# making a variable of the log-odds of the predicted values
+
+logit.dep.gender <- log(x = data1.gender.model$fitted.values/(1-data1.gender.model$fitted.values))
+```
+
+```{r}
+# making a small data frame with the log-odds variable and the age predictor
+
+linearity.gender.data <- data.frame(logit.dep.gender, gender = data1.gender.model$model$gender)
+```
+
+```{r}
+# creating a plot
+
+linearity.gender.data %>%
+ggplot(aes(x = gender, y = logit.dep.gender))+
+geom_point(aes(size = "Observation"), color = "gray60", alpha = .6) +
+geom_smooth(se = FALSE, aes(color = "Loess curve")) +
+geom_smooth(method = lm, se = FALSE, aes(color = "linear")) +
+theme_minimal() +
+labs(x = "gender",
+     y = "Log-odds of depression predicted probability") +
+scale_color_manual(name = "Type of fit line",
+                   values = c("dodgerblue2", "deeppink")) +
+scale_size_manual(values = 1.5, name = "")
+```
+
+```{r}
+plot(data1.gender.model, 1)
+```
+
+INTERPRETATION: The model was linear
+
+## Assumption 3: No perfect multicollinearity
+
+```{r}
+# computing GVIF
+car::vif(mod = data1.gender.model)
+```
+
+
+3) Model diagnostics 
+
+## Using standardized residuals to find outliers
+
+```{r}
+## getting standardized residuals and adding to data frame
+
+data1.cleaned.final.gender <- data1.cleaned.final %>%
+mutate(standardized = rstandard(model = data1.gender.model))
+```
+
+```{r}
+## checking the residuals for large values > 2
+
+data1.cleaned.final.gender %>%
+drop_na(standardized) %>%
+summarize(max.resid = max(abs(x = standardized)))
+```
+
+INTERPRETATION:The maximum absolute value of any standardized residual was less than than 1.96, so the standardized residuals did not reveal outliers. 
+
+## Using df-betas to find influential values
+
+```{r}
+## getting influence statistics
+
+influence.data1.gender <- influence.measures(model = data1.gender.model)
+```
+
+```{r}
+## summarizing data frame with dfbetas, cooks, leverage
+
+summary(object = influence.data1.gender$infmat)
+```
+
+Interpretation: None of the variables had df-betas larger than 2, so, by the df-beta measure, there were no influential observations.
+
+## Using Cook’s Distance to find influential values
+
+```{r}
+## saving the data frame
+
+influence.gender <- data.frame(influence.data1.gender$infmat)
+```
+
+```{r}
+## observations with high Cook’s D
+
+influence.gender %>%
+    filter(cook.d > 4/1427)
+```
+
+INTERPRETATION: There are no observations with high cook's D value
+
+## Using leverage to find influential values
+
+```{r}
+## observations with high Leverage
+
+influence.gender %>%
+  filter(hat > 2*13/1427)
+```
+
+INTERPRETATION: There are no observations with high leverage 
+
+```{r}
+## observations with high leverage and Cook’s D
+
+influence.gender %>%
+filter(hat > 2*13/1427 & cook.d > 4/1427)
+```
+
+INTERPRETATION: There were no values withhigh leverage and cook's D value
+
+```{r}
+## making row names as a variable
+
+influence.gender <- influence.gender %>%
+                  rownames_to_column()
+```
+
+```{r}
+## merging data frame with diagnostic stats
+
+data1.diag.gender <- data1.cleaned.final %>%
+rownames_to_column() %>%
+merge(x = influence.gender, by = 'rowname') %>%
+mutate(pred.prob = predict(object = data1.gender.model, type = "response"))
+```
+
+```{r}
+## finding mean predicted probability
+
+data1.diag.gender %>%
+summarize(mean.predicted = mean(x = pred.prob, na.rm = TRUE))
+```
+
+INTERPRETATION: The mean predicted probability is 0.24 for the model
+
+```{r}
+## reviewing influential observations
+
+data1.diag.gender %>%
+filter(hat > 2*13/1427 & cook.d > 4/1427) %>%
+select(rowname, gender,depression,hat, cook.d, pred.prob)
+```
+INTERPRETATION: there were no influential observations.
+
+REPORT: The chi-squared test statistic for a logistic regression model with, gender predicting depression had a p-value of less than 0.001. The null hypothesis is therefore rejected i.e., the model is better than the baseline at predicting   depression. A logistic regression model including gender was statistically        significantly better than a null model at predicting depression [χ2(1) =          81.662; p = <.001].female group is significant.The confidence interval of gender is 1.61- 2.10 and   the odds ratio is 1.84. The confidence interval  include 1, this indicates that   the odds ratio is not statistically significantly different from 1. Assumption checking revealed linearity of the gender predictor. The other assumptions were met. Diagnostics found no problematic outlying or influential observations. We couldn't find any multi-collinearity for the variable as model contains fewer than 2 terms
+
+
+##################################################################################
+
+1) final model
+
+* The statistical model for the logistic model in Equation
+                  p(y)=1/1+e−(b0+b1x1+b2x2)
+  where
+      y : the binary outcome variable (e.g., depression)
+      p(y) : the probability of the outcome (e.g., probability of depression)
+      b0 : the y-intercept
+      x1 and x2 : predictors of the outcome (e.g., age, marital status, income,                                                 gender)
+      b1 and b2 : coefficients for x1 and x2
+
+* The overall final equation looks like
+          p(depression)=1/1+e^(−(b0+b1gender+b2age+b3marital_status+b4income))
+    where 
+      y : the name of the outcome variable, depression
+      x : the name of the predictor variable, gender, age, marital_status, income
+
+```{r}
+## model for depression and all the variables
+
+data1.final.model <- glm(formula = depression ~ age + gender + income +                                               marital_status,
+                  data = data1.cleaned.final,
+                  na.action = na.exclude,
+                  family = binomial("logit"))
+```
+
+```{r}
+summary(object = data1.final.model)
+```
+
+```{r}
+## computing the odds ratio
+
+odds.n.ends(mod = data1.final.model)
+```
+
+INTERPRETATION: The chi-squared test statistic for a logistic regression model with, gender predicting depression had a p-value of less than 0.001. The null hypothesis is therefore rejected i.e., the model is better than the baseline at predicting   depression. A logistic regression model including gender was statistically significantly better than a null model at predicting depression [χ2(1) = 240.772; p = <.001]. The significant variables in this model are gender(female), income35,000 to 44,999, income45,000 to 54,999, income75,000 to 99,999, income100,000 and Over, marital_statusDivorced, marital_statusLiving with partner. The odds ratio of the group income35,000 to 44,999 is 0.6, and the 95 percent confidence intervals is 0.37-0.97,The odds ratio of the group income75,000 to 99,999 is 0.466, and the 95 percent confidence intervals is 0.2874805- 0.7649859. The odds ratio of the group income100,000 and Over is 0.282, and the 95 percent confidence intervals is 0.1778079 0.4548451. All the other grups have 1 either of the confidence intervals,this indicates that   the odds ratio is not statistically significantly different from 1
+
+```{r}
+## Computing the R-Squared
+
+countR2(data1.final.model)
+```
+
+INTERPRETATION: The R-squared value is 0.752.
+
+2) checking the assumtptions
+
+There are three assumptions for logistic regression: 
+* independence of observations, 
+* linearity, 
+* no perfect multi-collinearity. 
+
+## Assumption1: independence of observations
+
+```{r}
+durbinWatsonTest(data1.final.model)
+```
+
+INTERPRETATION: Since, the p-value is greater than 0.05, we assume that the observations are independent [p-value = 0.352]. Hence, the assumption is met.
+
+## Assumption2: linearity
+
+```{r}
+# making a variable of the log-odds of the predicted values
+
+logit.dep.final <- log(x = data1.final.model$fitted.values/(1-data1.final.model$fitted.values))
+```
+
+```{r}
+# making a small data frame with the log-odds variable and the age predictor
+
+linearity.final.data <- data.frame(logit.dep.final, age = data1.final.model$model$age)
+```
+
+```{r}
+# creating a plot
+
+linearity.final.data %>%
+ggplot(aes(x = age, y = logit.dep.final))+
+geom_point(aes(size = "Observation"), color = "gray60", alpha = .6) +
+geom_smooth(se = FALSE, aes(color = "Loess curve")) +
+geom_smooth(method = lm, se = FALSE, aes(color = "linear")) +
+theme_minimal() +
+labs(x = "final",
+     y = "Log-odds of depression predicted probability") +
+scale_color_manual(name = "Type of fit line",
+                   values = c("dodgerblue2", "deeppink")) +
+scale_size_manual(values = 1.5, name = "")
+```
+
+
+```{r}
+plot(data1.final.model, 1)
+```
+
+INTERPRETATION: The graph is near to linear. It is for the statisticians to choose the decision.The assumption seems to be met.
+
+## Assumption 3: No perfect multicollinearity
+
+```{r}
+# computing GVIF
+car::vif(mod = data1.final.model)
+```
+
+Interpretation: None of the values in the right-hand column have a value of 2.5 or higher, so there is no discernable problem with multicollinearity.
+
+3) Model diagnostics 
+
+## Using standardized residuals to find outliers
+
+```{r}
+## getting standardized residuals and adding to data frame
+
+data1.final.cleaned <- data1.cleaned.final %>%
+mutate(standardized = rstandard(model = data1.final.model))
+```
+
+```{r}
+## checking the residuals for large values > 2
+
+data1.final.cleaned %>%
+drop_na(standardized) %>%
+summarize(max.resid = max(abs(x = standardized)))
+```
+
+Interpretation:The maximum absolute value of any standardized residual was less than 1.96, so the standardized residuals did reveal any outliers.
+
+
+## Using df-betas to find influential values
+
+```{r}
+## getting influence statistics
+
+influence.data1.final <- influence.measures(model = data1.final.model)
+```
+
+```{r}
+## summarizing data frame with dfbetas, cooks, leverage
+
+summary(object = influence.data1.final$infmat)
+```
+
+Interpretation: None of the variables, gender, dfb.i2t2, dfb.i2t3, dfb.i3t4,  dfb.i4t5, dfb.i5t6, dfb.i6t7, dfb.i7t9, dfb.i1aO, dfb.mr_D, dfb.mr_S had df-betas less than 2, so, by the df-beta measure, there were influential observations. Rest all the variables did not have influential observations.
+
+## Using Cook’s Distance to find influential values
+
+```{r}
+## saving the data frame
+
+influence.final <- data.frame(influence.data1.final$infmat)
+```
+
+```{r}
+## observations with high Cook’s D
+
+influence.final %>%
+    filter(cook.d > 4/1427)
+```
+
+INTERPRETATION: There were no observations with high cook's D value
+
+## Using leverage to find influential values
+
+```{r}
+## observations with high Leverage
+
+influence.final %>%
+  filter(hat > 2*13/1427)
+```
+ 
+INTERPRETATION: There were some observations with high leverage
+
+```{r}
+## observations with high leverage and Cook’s D
+
+influence.final %>%
+filter(hat > 2*13/1427 & cook.d > 4/1427)
+```
+
+INTERPRETATION: There were no observations with high leverage and Cook’s D
+
+```{r}
+## making row names as a variable
+
+influence.final <- influence.final %>%
+                  rownames_to_column()
+```
+
+```{r}
+## merging data frame with diagnostic stats
+
+data1.diag.final <- data1.cleaned.final %>%
+rownames_to_column() %>%
+merge(x = influence.final, by = 'rowname') %>%
+mutate(pred.prob = predict(object = data1.final.model, type = "response"))
+```
+
+```{r}
+## finding mean predicted probability
+
+data1.diag.final %>%
+summarize(mean.predicted = mean(x = pred.prob, na.rm = TRUE))
+```
+
+INTERPRETATION: The mean predicted probability is 0.24
+
+```{r}
+## reviewing influential observations
+
+data1.diag.final %>%
+filter(hat > 2*13/1427 & cook.d > 4/1427) %>%
+select(rowname, age, gender, income, marital_status,depression,hat, cook.d, pred.prob)
+```
+
+INTERPRETATION: There were no influential observations
+
+REPORT:  The chi-squared test statistic for a logistic regression model with, gender predicting depression had a p-value of less than 0.001. The null hypothesis is therefore rejected i.e., the model is better than the baseline at predicting   depression. A logistic regression model including gender was statistically significantly better than a null model at predicting depression [χ2(1) = 240.772; p = <.001]. The significant variables in this model are gender(female), income35,000 to 44,999, income45,000 to 54,999, income75,000 to 99,999, income100,000 and Over, marital_statusDivorced, marital_statusLiving with partner. The odds ratio of the group income35,000 to 44,999 is 0.6, and the 95 percent confidence intervals is 0.37-0.97,The odds ratio of the group income75,000 to 99,999 is 0.466, and the 95 percent confidence intervals is 0.2874805- 0.7649859. The odds ratio of the group income100,000 and Over is 0.282, and the 95 percent confidence intervals is 0.1778079 0.4548451. All the other grups have 1 either of the confidence intervals,this indicates that   the odds ratio is not statistically significantly different from 1.  None of the variables, gender, dfb.i2t2, dfb.i2t3, dfb.i3t4,  dfb.i4t5, dfb.i5t6, dfb.i6t7, dfb.i7t9, dfb.i1aO, dfb.mr_D, dfb.mr_S had df-betas less than 2, so, by the df-beta measure, there were influential observations. Rest all the variables did not have influential observations.
+
+----------------------------------------------------------------------------------
+                            
+                            FINAL REGRESSION REPORT
+                            _______________________
+                            
+FINAL REPORT: Final model is better than all the individual models. 
+
+* The chi-squared test statistic for a logistic regression model with age predicting depression had a p-value of more than 0.001. The null hypothesis is therefore accepted i.e., the model is not  better than the baseline at predicting depression. A logistic regression model including age was not statistically significantly better than a null model at predicting depression [χ2(1) = 3.506; p = >.001].The odds ratio for age is 1.00 with a 95% CI of .99–1.00. The confidence interval shows the range where the odds ratio likely is in the population. Because the confidence interval include 1, this indicates that the odds ratio is statistically not significantly different from 1. so, age is not statistically significant. Assumption checking revealed linearity of the age predictor. The other assumptions were met. Diagnostics found no problematic outlying or influential observations.We couldn't find any multi-collinaerity for the variable as model contains fewer than 2 terms
+
+*  The chi-squared test statistic for a logistic regression model with, marital status predicting depression had a p-value of less than 0.001. The null hypothesis is therefore rejected i.e., the model is better than the baseline at predicting depression. A logistic regression model including marital status was statistically significantly better than a null model at predicting depression [χ2(1) = 72.791; p = <.001]. The odds ratio for all the groups in the variable is between 1.00 and 2.06 with a 95% CI of all groups are between either 1 and 2, or 1 and 1.9. The confidence interval shows the range where the odds ratio likely is in the population. Because the confidence interval include 1, this indicates that the odds ratio is statistically not significantly different from 1. 
+so, marital status is not statistically significant. Assumption checking revealed linearity of the marital status predictor. The other assumptions were met. Diagnostics found no problematic outlying or influential observations. We couldn't find any multi-collinearity for the variable as model contains fewer than 2 terms.
+
+* The chi-squared test statistic for a logistic regression model with, income predicting depression had a p-value of less than 0.001. The null hypothesis iS therefore rejected i.e., the model is better than the baseline at predicting depression. A logistic regression model including marital status was statistically significantly better than a null model at predicting depression [χ2(1) = 151.759; p = <.001].The groups, income25,000 to 34,000, income35,000 to 44,999, income45,000 to 54,999, income55,000 to 64,999, income65,000 to 74,999, income75,000 to 99,999,and income100,000 and Over are significant.The confidence interval of the groups income25,000 to 34,000, income35,000 to 44,999, income45,000 to 54,999, income55,000 to 64,999, income65,000 to 74,999, income75,000 to 99,999, and income100,000 and Over the confidence interval does not include 1, this indicates that the odds ratio is statistically significantly different from 1. so, income is not statistically significant. Assumption checking revealed linearity of the income predictor. The other assumptions were met. Diagnostics found no problematic outlying or influential observations. We couldn't find any multi-collinearity for the variable as model contains fewer than 2 terms.
+
+*  The chi-squared test statistic for a logistic regression model with, gender predicting depression had a p-value of less than 0.001. The null hypothesis is therefore rejected i.e., the model is better than the baseline at predicting   depression. A logistic regression model including gender was statistically        significantly better than a null model at predicting depression [χ2(1) =          81.662; p = <.001].female group is significant.The confidence interval of gender is 1.61- 2.10 and   the odds ratio is 1.84. The confidence interval  include 1, this indicates that   the odds ratio is not statistically significantly different from 1. Assumption checking revealed linearity of the gender predictor. The other assumptions were met. Diagnostics found no problematic outlying or influential observations. We couldn't find any multi-collinearity for the variable as model contains fewer than 2 terms
+
+* The chi-squared test statistic for a logistic regression model with, gender, age, marital status and income predicting depression had a p-value of less than 0.001. The null hypothesis is therefore rejected i.e., the model is better than the baseline at predicting   depression. A logistic regression model including all the variables was statistically significantly better than a null model at predicting depression [χ2(1) = 240.772; p = <.001]. The significant variables in this model are gender(female), income 35,000 to 44,999, income 45,000 to 54,999, income 75,000 to 99,999, income 100,000 and Over, marital_status Divorced, marital_status Living with partner. The odds ratio of the group income 35,000 to 44,999 is 0.6, and the 95 percent confidence intervals is 0.37-0.97,The odds ratio of the group income 75,000 to 99,999 is 0.466, and the 95 percent confidence intervals is 0.2874805- 0.7649859. The odds ratio of the group income 100,000 and Over is 0.282, and the 95 percent confidence intervals is 0.1778079 0.4548451. All the other groups have 1 either of the confidence intervals,this indicates that   the odds ratio is not statistically significantly different from 1.  None of the variables, gender, dfb.i2t2, dfb.i2t3, dfb.i3t4,  dfb.i4t5, dfb.i5t6, dfb.i6t7, dfb.i7t9, dfb.i1aO, dfb.mr_D, dfb.mr_S had df-betas less than 2, so, by the df-beta measure, there were influential observations. Rest all the variables did not have influential observations.
+
+*  A logistic regression model including age was not statistically significantly better than a null model at predicting depression [χ2(1) = 3.506; p = >.001]. A logistic regression model including marital status was statistically significantly better than a null model at predicting depression [χ2(1) = 72.791; p = <.001].  A logistic regression model including marital status was statistically significantly better than a null model at predicting depression [χ2(1) = 151.759; p = <.001]. A logistic regression model including gender was statistically significantly better than a null model at predicting depression [χ2(1) = 81.662; p = <.001]. A logistic regression model including gender was statistically significantly better than a null model at predicting depression [χ2(1) = 240.772; p = <.001]. Hence, seeing the model results, we can predict that the final model is more better than the other models although it has some outliers and influential values.
+
+----------------------------------------------------------------------------------
+
+                                 CONCLUSION
+                                ____________
+                                
+From the results of the Chi-squared test and the logistic regression model including all the variables we can understand that under marital status people under Divorced and Living with partner are more prone to the depression. Where are coming to the income variable, from the chi-squared test and logistic regression model we can see that income 35,000 to 44,999, income 45,000 to 54,999, income 75,000 to 99,999, income 100,000 and Over are the groups that are most effected by depression. Also from the gender category females are more effected than males. Coming to the age, from the t-tests and the logistic regression models we understand that the age do not have any relation with depression in adults. These conclusions cannot be generalized to the whole population as the data is not that accurate. It has many missing values and many confused answers from the participants.
+                                
+                                
+                                
+                                
+                                
+                                
+                                
+
